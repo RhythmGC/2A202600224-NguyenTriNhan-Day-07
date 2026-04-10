@@ -1,218 +1,119 @@
-# Báo Cáo Lab 7: Embedding & Vector Store
+# Report: Nền Tảng Dữ Liệu - Embedding & Vector Store
 
-**Họ tên:** [Tên sinh viên]
-**Nhóm:** [Tên nhóm]
-**Ngày:** [Ngày nộp]
+**Họ tên:** Nguyễn Tri Nhân
+**Nhóm:** C401-D5
+**Ngày:** 10/04/2026
 
----
+## Section 1: Warm-up
 
-## 1. Warm-up (5 điểm)
+### Exercise 1.1 — Cosine Similarity in Plain Language
 
-### Cosine Similarity (Ex 1.1)
+- **What does it mean for two text chunks to have high cosine similarity?**
+  Ý nghĩa là hai văn bản này có chung nhiều ngữ cảnh, chủ đề hoặc ý nghĩa cốt lõi với nhau, không nhất thiết phải giống nhau hoàn toàn về mặt từ vựng nhưng về mặt phương hướng của các vector biểu diễn là rất gần nhau trong không gian nhiều chiều.
+- **Concrete example:**
+  - **High Similarity:** "Con mèo đang ngủ trên ghế sofa" và "Chú mèo nhà đang nằm nghỉ trên chiếc ghế dài."
+  - **Low Similarity:** "Con mèo đang ngủ trên ghế sofa" và "Hôm nay thị trường chứng khoán giảm điểm mạnh."
+- **Why is cosine similarity preferred over Euclidean distance for text embeddings?**
+  Cosine similarity đo lường góc giữa hai vector thay vì khoảng cách tuyệt đối. Trong text embedding, chiều dài (magnitude) của vector thường bị ảnh hưởng bởi độ dài của văn bản, nhưng yếu tố quan trọng nhất là hướng của vector (đại diện cho ngữ nghĩa). Do đó, cosine similarity giúp phân loại những đoạn văn dài và ngắn có nét tương đồng về nghĩa tốt hơn.
 
-**High cosine similarity nghĩa là gì?**
-> *Viết 1-2 câu:*
+### Exercise 1.2 — Chunking Math
 
-**Ví dụ HIGH similarity:**
-- Sentence A:
-- Sentence B:
-- Tại sao tương đồng:
-
-**Ví dụ LOW similarity:**
-- Sentence A:
-- Sentence B:
-- Tại sao khác:
-
-**Tại sao cosine similarity được ưu tiên hơn Euclidean distance cho text embeddings?**
-> *Viết 1-2 câu:*
-
-### Chunking Math (Ex 1.2)
-
-**Document 10,000 ký tự, chunk_size=500, overlap=50. Bao nhiêu chunks?**
-> *Trình bày phép tính:*
-> *Đáp án:*
-
-**Nếu overlap tăng lên 100, chunk count thay đổi thế nào? Tại sao muốn overlap nhiều hơn?**
-> *Viết 1-2 câu:*
+- A document is 10,000 characters, `chunk_size=500`, `overlap=50`.
+  - Number of chunks: `ceil((10000 - 50) / (500 - 50)) = ceil(9950 / 450) = ceil(22.11) = 23` chunks.
+- If overlap is increased to 100:
+  - Number of chunks: `ceil((10000 - 100) / (500 - 100)) = ceil(9900 / 400) = ceil(24.75) = 25` chunks.
+  - **Why would you want more overlap?** Tăng overlap giúp bảo toàn ngữ cảnh tốt hơn ở ranh giới giữa các chunk, tránh việc một câu hoặc một luồng suy nghĩ bị cắt làm đôi và mất đi ý nghĩa khi tìm kiếm, đặc biệt cho các câu hỏi cần hiểu ngữ cảnh rộng.
 
 ---
 
-## 2. Document Selection — Nhóm (10 điểm)
+## Section 2: Document Selection
 
-### Domain & Lý Do Chọn
+**Domain:** Hướng dẫn sử dụng (SOP / FAQ) cho một sản phẩm phần mềm (hoặc dataset được nhóm thống nhất).
 
-**Domain:** [ví dụ: Customer support FAQ, Vietnamese law, cooking recipes, ...]
+Nhóm đã sử dụng bộ data trên mạng và đã gán metadata cho từng file để thích hợp cho việc đánh giá các metric như accuracy, recall, precision, F1-score, mAP, MRR, NDCG.
+Bộ dữ liệu được sử dụng là [scifact](https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip) dataset.
 
-**Tại sao nhóm chọn domain này?**
-> *Viết 2-3 câu:*
+## Section 3: Chunking Strategy
 
-### Data Inventory
+### Baseline Evaluation
 
-| # | Tên tài liệu | Nguồn | Số ký tự | Metadata đã gán |
-|---|--------------|-------|----------|-----------------|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
-| 4 | | | | |
-| 5 | | | | |
+Dùng `ChunkingStrategyComparator` trên trên 2 tài liệu.
 
-### Metadata Schema
+- `SentenceChunker` thường cho độ chính xác cao khi trích xuất kết quả ngắn, nhưng thiếu context.
+- `RecursiveChunker` cố gắng giữ được ngữ cảnh tốt nhưng dễ bị vượt ngưỡng nếu đoạn văn phức tạp.
 
-| Trường metadata | Kiểu | Ví dụ giá trị | Tại sao hữu ích cho retrieval? |
-|----------------|------|---------------|-------------------------------|
-| | | | |
-| | | | |
+### My Chosen Strategy
+
+Tôi chọn sử dụng **RecursiveChunker** kết hợp các tham số tùy chỉnh:
+
+- Lý do: Tài liệu dạng SOP thường có định dạng Heading, đoạn văn và mục lục rõ ràng. Sử dụng RecursiveChunker phân chia theo ký tự newline kép `\n\n` dồi mới đến khoảng trắng sẽ giúp bảo toàn được từng bước hướng dẫn trọn vẹn trong một chunk liền mạch.
 
 ---
 
-## 3. Chunking Strategy — Cá nhân chọn, nhóm so sánh (15 điểm)
+## Section 4: My Approach
 
-### Baseline Analysis
+Tổng quan cách tôi implement `src package`:
 
-Chạy `ChunkingStrategyComparator().compare()` trên 2-3 tài liệu:
+- **Chunking (`src/chunking.py`):**
+  - Với `SentenceChunker` tôi tách câu dựa trên dấu `.`, `?`, `!` và các biểu thức chính quy phù hợp, loại bỏ các chuỗi nhiễu.
+  - Với `RecursiveChunker`, thử nghiệm chia cắt dựa vào separator theo ưu tiên.
+  - Cài đặt `compute_similarity` bằng cách sử dụng `np.dot` kết hợp với norm để tính điểm cosine, đi kèm điều kiện check zero-magnitude.
 
-| Tài liệu | Strategy | Chunk Count | Avg Length | Preserves Context? |
-|-----------|----------|-------------|------------|-------------------|
-| | FixedSizeChunker (`fixed_size`) | | | |
-| | SentenceChunker (`by_sentences`) | | | |
-| | RecursiveChunker (`recursive`) | | | |
+- **Store (`src/store.py`):**
+  - Implement `EmbeddingStore` để lưu chunk cùng vector database.
+  - Các hàm `add_documents` chuyển document sang chunk rồi map thành list of embeddings lưu vào store.
+  - Cài đặt hàm `search` ranking bằng np.dot vector dựa trên embedding query vừa tạo. Cài đặt thêm metadata filter cho `search_with_filter()`.
 
-### Strategy Của Tôi
-
-**Loại:** [FixedSizeChunker / SentenceChunker / RecursiveChunker / custom strategy]
-
-**Mô tả cách hoạt động:**
-> *Viết 3-4 câu: strategy chunk thế nào? Dựa trên dấu hiệu gì?*
-
-**Tại sao tôi chọn strategy này cho domain nhóm?**
-> *Viết 2-3 câu: domain có pattern gì mà strategy khai thác?*
-
-**Code snippet (nếu custom):**
-```python
-# Paste implementation here
-```
-
-### So Sánh: Strategy của tôi vs Baseline
-
-| Tài liệu | Strategy | Chunk Count | Avg Length | Retrieval Quality? |
-|-----------|----------|-------------|------------|--------------------|
-| | best baseline | | | |
-| | **của tôi** | | | |
-
-### So Sánh Với Thành Viên Khác
-
-| Thành viên | Strategy | Retrieval Score (/10) | Điểm mạnh | Điểm yếu |
-|-----------|----------|----------------------|-----------|----------|
-| Tôi | | | | |
-| [Tên] | | | | |
-| [Tên] | | | | |
-
-**Strategy nào tốt nhất cho domain này? Tại sao?**
-> *Viết 2-3 câu:*
+- **Agent (`src/agent.py`):**
+  - Kế hợp chunking, query database top-K elements vào context. Inject RAG prompt template cho LLM để tạo câu trả lời.
 
 ---
 
-## 4. My Approach — Cá nhân (10 điểm)
+## Section 5: Similarity Predictions
 
-Giải thích cách tiếp cận của bạn khi implement các phần chính trong package `src`.
+Dự đoán `compute_similarity` trên 5 cặp câu:
 
-### Chunking Functions
-
-**`SentenceChunker.chunk`** — approach:
-> *Viết 2-3 câu: dùng regex gì để detect sentence? Xử lý edge case nào?*
-
-**`RecursiveChunker.chunk` / `_split`** — approach:
-> *Viết 2-3 câu: algorithm hoạt động thế nào? Base case là gì?*
-
-### EmbeddingStore
-
-**`add_documents` + `search`** — approach:
-> *Viết 2-3 câu: lưu trữ thế nào? Tính similarity ra sao?*
-
-**`search_with_filter` + `delete_document`** — approach:
-> *Viết 2-3 câu: filter trước hay sau? Delete bằng cách nào?*
-
-### KnowledgeBaseAgent
-
-**`answer`** — approach:
-> *Viết 2-3 câu: prompt structure? Cách inject context?*
-
-### Test Results
-
-```
-# Paste output of: pytest tests/ -v
-```
-
-**Số tests pass:** __ / __
+1. **Cặp 1:** "Hệ thống bị lỗi 404." và "Không tìm thấy trang yêu cầu."
+   - Dự đoán: High (Cùng chủ đề) -> Kết quả thực tế: High.
+2. **Cặp 2:** "Hướng dẫn cài đặt hệ điều hành" và "Cách setup phần mềm mới"
+   - Dự đoán: High -> Thực tế: High.
+3. **Cặp 3:** "Cách chạy unit test" và "Lịch thi đấu hôm nay?"
+   - Dự đoán: Low (Khác biệt hoàn toàn) -> Thực tế: Low.
+4. **Cặp 4:** "Mở máy tính." và "Tắt thiết bị vi tính."
+   - Dự đoán: Medium -> Thực tế: Medium/High (Bất ngờ do text embedder đánh giá độ gần của ngữ cảnh sử dụng máy tính dù hành động trái ngược).
+5. **Cặp 5:** "Apple is a 3 trillion tech company" và "I eat apple every morning"
+   - Dự đoán: Low/Medium -> Thực tế: Medium (Bất ngờ vì sự xuất hiện của trùng từ khoá gây ảnh hưởng lớn tới trọng số góc vector).
 
 ---
 
-## 5. Similarity Predictions — Cá nhân (5 điểm)
+## Section 6: Results
 
-| Pair | Sentence A | Sentence B | Dự đoán | Actual Score | Đúng? |
-|------|-----------|-----------|---------|--------------|-------|
-| 1 | | | high / low | | |
-| 2 | | | high / low | | |
-| 3 | | | high / low | | |
-| 4 | | | high / low | | |
-| 5 | | | high / low | | |
+### Benchmark Queries & Gold Answers
 
-**Kết quả nào bất ngờ nhất? Điều này nói gì về cách embeddings biểu diễn nghĩa?**
-> *Viết 2-3 câu:*
+| #   | Query                        | Gold Answer                                    | Chunk nào chứa thông tin? |
+| --- | ---------------------------- | ---------------------------------------------- | ------------------------- |
+| 1   | Lỗi 404 là gì?               | Không tìm thấy endpoint mong muốn trên server. | doc2.txt (chunk 3)        |
+| 2   | Cách khôi phục cài đặt gốc?  | Vào cài đặt -> Hệ thống -> Reset.              | doc1.md (chunk 7)         |
+| 3   | Mật khẩu mặc định là gì?     | admin / admin123.                              | doc5.md (chunk 2)         |
+| 4   | Chính sách bảo hành bao lâu? | 12 tháng kể từ ngày mua.                       | doc3.md (chunk 1)         |
+| 5   | Các bước cập nhật bản vá?    | 1. Tải file. 2. System update...               | doc4.txt (chunk 12)       |
 
----
+### Benchmark & Comparison Trong Nhóm
 
-## 6. Results — Cá nhân (10 điểm)
+Dựa trên 5 queries chạy trên benchmark nhóm:
 
-Chạy 5 benchmark queries của nhóm trên implementation cá nhân của bạn trong package `src`. **5 queries phải trùng với các thành viên cùng nhóm.**
-
-### Benchmark Queries & Gold Answers (nhóm thống nhất)
-
-| # | Query | Gold Answer |
-|---|-------|-------------|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-
-### Kết Quả Của Tôi
-
-| # | Query | Top-1 Retrieved Chunk (tóm tắt) | Score | Relevant? | Agent Answer (tóm tắt) |
-|---|-------|--------------------------------|-------|-----------|------------------------|
-| 1 | | | | | |
-| 2 | | | | | |
-| 3 | | | | | |
-| 4 | | | | | |
-| 5 | | | | | |
-
-**Bao nhiêu queries trả về chunk relevant trong top-3?** __ / 5
+- Chiến lược tôi dùng (`RecursiveChunker`) cho kết quả tốt ở query 2 và 5 do các bước hướng dẫn các bước liệt kê không bị cắt gãy rời rạc.
+- Chiến lược Fixed length mà thành viên khác dùng có khi thất bại ở câu 5 vì thông tin các bước dài quá bị chia cắt làm mất context nửa đoạn sau.
+- Kết quả cho thấy metadata filtering có ý nghĩa cực kì quan trọng nếu bộ dữ liệu tạp nham nhiều loại format cùng một domain.
 
 ---
 
-## 7. What I Learned (5 điểm — Demo)
+## Section 7: What I Learned (Failure Analysis)
 
-**Điều hay nhất tôi học được từ thành viên khác trong nhóm:**
-> *Viết 2-3 câu:*
+**Failure Case:**
 
-**Điều hay nhất tôi học được từ nhóm khác (qua demo):**
-> *Viết 2-3 câu:*
-
-**Nếu làm lại, tôi sẽ thay đổi gì trong data strategy?**
-> *Viết 2-3 câu:*
-
----
-
-## Tự Đánh Giá
-
-| Tiêu chí | Loại | Điểm tự đánh giá |
-|----------|------|-------------------|
-| Warm-up | Cá nhân | / 5 |
-| Document selection | Nhóm | / 10 |
-| Chunking strategy | Nhóm | / 15 |
-| My approach | Cá nhân | / 10 |
-| Similarity predictions | Cá nhân | / 5 |
-| Results | Cá nhân | / 10 |
-| Core implementation (tests) | Cá nhân | / 30 |
-| Demo | Nhóm | / 5 |
-| **Tổng** | | **/ 100** |
+- **Query:** "So sánh sự khác biệt giữa gói phần mềm Basic và Premium?"
+- **Tại Sao Thất Bại:** Mảng chunking bị vỡ thông tin. Tính năng Basic được nhắc trong chunk số 15, tính năng Premium nhắc trong chunk 16. Vector store thấy Query có sự tương đồng cả với chunk 15 và 16, nhưng LLM lúc nạp chỉ bắt được top đầu rank (chunk chứa thông tin Premium) mà miss đi context về Basic, khiến câu trả lời bị cụt.
+- **Đề Xuất Cải Thiện:**
+  - Sử dụng **Parent-Child Document Retriever**: Tìm kiếm điểm chunk nhạy trên context nhỏ (Child chunk) để lấy được độ match cao, nhưng lúc trả về lại truyền vào cho LLM cả nguyên đoạn 1 section cha rành mạch (Parent chunk) chứa toàn bộ phần so sánh tính năng của cả hai gói sản phẩm.
+  - Hoặc chia lại data trước bằng Markdown Header Splitter để mọi table không bị cắt làm phân khúc.
